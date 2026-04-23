@@ -1,0 +1,17 @@
+<resources>
+    <string name="app_name">AI Video</string>
+    <string name="chat_hint">Describe your video scene...</string>
+    <string name="send">Send</string>
+    <string name="cancel">Cancel</string>
+    <string name="download">Download</string>
+    <string name="share">Share</string>
+    <string name="delete">Delete</string>
+    <string name="retry">Retry</string>
+    <string name="settings">Settings</string>
+    <string name="gallery">My Videos</string>
+    <string name="empty_gallery">No Videos Yet</string>
+    <string name="empty_gallery_subtitle">Generate your first AI video from the chat screen</string>
+    <string name="prompt_enhanced">Prompt Enhanced</string>
+    <string name="generating">Generating...</string>
+    <string name="error_generation">Generation failed</string>
+</resources>

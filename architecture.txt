@@ -1,0 +1,141 @@
+
+AI VIDEO GENERATION PLATFORM - SYSTEM ARCHITECTURE
+====================================================
+
+    +-------------------+        +-------------------+
+    |   Android Client  |        |   Web Dashboard   |
+    |   (Jetpack Compose|        |   (Future)        |
+    |    Kotlin)        |        |                   |
+    +--------+----------+        +--------+----------+
+             |                            |
+             |  HTTPS / WebSocket / SSE   |
+             v                            v
+    +--------+--------------------------------------+
+    |              FastAPI Backend                   |
+    |  +------------------------------------------+  |
+    |  |  API Layer                               |  |
+    |  |  - /api/v1/chat (SSE streaming)          |  |
+    |  |  - /api/v1/generate (async)              |  |
+    |  |  - /api/v1/videos (CRUD)                 |  |
+    |  |  - /api/v1/presets                       |  |
+    |  |  - /api/v1/enhance-prompt                |  |
+    |  +---------------------+--------------------+  |
+    |                        |                       |
+    |  +---------------------v--------------------+  |
+    |  |  Service Layer                            |  |
+    |  |  - ChatService                            |  |
+    |  |  - VideoService (LLM + Video API)         |  |
+    |  |  - PromptService                          |  |
+    |  |  - StorageService                         |  |
+    |  +---------------------+--------------------+  |
+    |                        |                       |
+    |  +---------------------v--------------------+  |
+    |  |  Background Workers (Celery)              |  |
+    |  |  - Video generation jobs                  |  |
+    |  |  - Thumbnail generation                   |  |
+    |  |  - Cleanup tasks                          |  |
+    |  +---------------------+--------------------+  |
+    +------------------------|-----------------------+
+                             |
+        +--------------------+--------------------+
+        |                    |                    |
+        v                    v                    v
++-------+--------+  +-------+--------+  +--------+---------+
+|  PostgreSQL    |  |  Redis         |  |  External APIs   |
+|                |  |                |  |                  |
+|  - videos      |  |  - cache       |  |  - OpenAI (LLM)  |
+|  - chat_history|  |  - queue       |  |  - Runway (Video)|
+|  - users       |  |  - pub/sub     |  |  - S3 (Storage)  |
++----------------+  +----------------+  +------------------+
+
+
+DATA FLOW: User Prompt to Generated Video
+==========================================
+
+  User              Android App              Backend              LLM API        Video API
+    |                   |                      |                    |               |
+    | "cat in Tokyo"    |                      |                    |               |
+    |------------------>|                      |                    |               |
+    |                   |  POST /api/v1/chat   |                    |               |
+    |                   |--------------------->|                    |               |
+    |                   |                      |  enhance prompt    |               |
+    |                   |                      |------------------->|               |
+    |                   |                      |                    |               |
+    |                   |                      |<-------------------|               |
+    |  "Enhancing..."   |  SSE: prompt_enhanced                     |               |
+    |<------------------|<---------------------|                    |               |
+    |                   |                      |                    |               |
+    |  "Queued..."      |  SSE: status         |                    |               |
+    |<------------------|<---------------------|                    |               |
+    |                   |                      |                    |               |
+    |  "Generating 30%" |  SSE: status         |  generate video    |               |
+    |<------------------|<---------------------|------------------------------------>|
+    |                   |                      |                    |               |
+    |  "Rendering 80%"  |  SSE: status         |                    |               |
+    |<------------------|<---------------------|                    |               |
+    |                   |                      |<------------------------------------|
+    |                   |                      |  (video url)       |               |
+    |  [VIDEO PLAYER]   |                      |                    |               |
+    |<------------------|  SSE: complete       |                    |               |
+    |                   |<---------------------|                    |               |
+    |                   |                      |                    |               |
+
+
+ANDROID APP ARCHITECTURE (MVVM + Repository)
+=============================================
+
+    +------------------+
+    |    UI Layer      |
+    |  (Compose Screens|
+    +--------+---------+
+             |
+    +--------v---------+
+    |  ViewModel Layer |  <- StateFlow/SharedFlow
+    |  - ChatViewModel |
+    |  - GalleryViewModel
+    |  - SettingsViewModel
+    +--------+---------+
+             |
+    +--------v---------+
+    | Repository Layer |  <- Business logic
+    |  - ChatRepository|
+    |  - VideoRepository
+    |  - PresetRepository
+    +--------+---------+
+             |
+    +--------v---------+
+    |   Data Layer     |
+    |  - Retrofit API  |
+    |  - SSE Client    |
+    |  - Local DB      |
+    +------------------+
+
+
+BACKEND ARCHITECTURE (Layered)
+===============================
+
+    +--------------------+
+    |   API Endpoints    |  <- FastAPI routers
+    |   (REST + SSE)     |
+    +--------+-----------+
+             |
+    +--------v-----------+
+    |  Service Layer     |  <- Business logic
+    |  - LLMService      |
+    |  - VideoService    |
+    |  - PromptService   |
+    +--------+-----------+
+             |
+    +--------v-----------+
+    |  External APIs     |  <- Third-party integrations
+    |  - OpenAI/Claude   |
+    |  - Runway/Kling    |
+    |  - S3/R2 Storage   |
+    +--------------------+
+             |
+    +--------v-----------+
+    |  Data Layer        |
+    |  - PostgreSQL      |
+    |  - Redis           |
+    |  - Celery Workers  |
+    +--------------------+
